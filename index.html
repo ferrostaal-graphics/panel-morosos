@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel Semanal — Técnicos Morosos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface2: #f8f9fa;
+    --border: rgba(0,0,0,0.10);
+    --text: #1a1d23;
+    --text2: #5f6470;
+    --text3: #9ea5b0;
+    --navy: #00416a;
+    --navy2: #00416a;
+    --red: #e24b4a;
+    --red-light: #fcebeb;
+    --amber: #ba7517;
+    --amber-light: #faeeda;
+    --green: #3b6d11;
+    --green-light: #eaf3de;
+    --blue: #185fa5;
+    --blue-light: #e6f1fb;
+    --radius: 6px;
+    --radius-lg: 8px;
+  }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--navy);
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+    border-bottom: 2px solid #e24b4a;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .brand-title {
+    font-weight: 600; font-size: 13px; color: rgba(255,255,255,0.75);
+    letter-spacing: 0.03em; border-left: 1px solid rgba(255,255,255,0.2);
+    padding-left: 14px;
+  }
+  .header-right { color: rgba(255,255,255,0.5); font-size: 12px; }
+
+  /* MAIN */
+  main { max-width: 1180px; margin: 0 auto; padding: 0.8rem 1rem; }
+
+  /* UPLOAD AREA */
+  #upload-section {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    padding: 1.8rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    margin-bottom: 1rem;
+  }
+  #upload-section:hover, #upload-section.dragover {
+    border-color: var(--blue);
+    background: var(--blue-light);
+  }
+  #upload-section i { font-size: 32px; color: var(--text3); margin-bottom: 6px; display: block; }
+  #upload-section h2 { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  #upload-section p { font-size: 12px; color: var(--text2); }
+  #file-input { display: none; }
+
+  /* REPORT CONFIG */
+  #config-bar {
+    display: none;
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.6rem 1rem;
+    margin-bottom: 1rem;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .config-group { display: flex; align-items: center; gap: 6px; }
+  .config-group label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+  .config-group input[type="number"] {
+    width: 65px; padding: 4px 8px;
+    border: 0.5px solid var(--border);
+    border-radius: 4px;
+    font-size: 13px;
+    background: var(--surface2);
+  }
+  .file-info { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--green); margin-left: auto; }
+  
+  /* BOTONES */
+  .btn-generate {
+    background: var(--navy);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s;
+  }
+  .btn-generate:hover { background: #00305a; }
+  
+  .btn-pdf {
+    background: var(--red);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s;
+    margin-left: 8px;
+  }
+  .btn-pdf:hover { background: #c73b3a; }
+  .btn-pdf.visible { display: flex; }
+
+  /* PRINT STYLES */
+  @media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    body { background: #fff !important; margin:0; padding:0; }
+    header, #upload-section, #config-bar, footer, .panel-subtitle, #print-header { display: none !important; }
+    main { padding: 0.2rem !important; max-width: 100% !important; margin:0 !important; }
+    #dashboard { display: block !important; margin:0 !important; }
+
+    .week-top { margin-bottom: 0.4rem !important; }
+    .header-cards { margin-bottom: 0.6rem !important; }
+    .panel-card { border: 0.5px solid #ddd !important; margin:0 !important; }
+    .panel-body { padding: 0.5rem !important; }
+
+    .main-grid { display: flex !important; flex-direction: row !important; gap: 0.8rem !important; }
+    .panel-card-chart { flex: 2 !important; }
+    .panel-card-ranking { flex: 1.2 !important; }
+
+    .ranking-table td, .ranking-table th { font-size: 11px !important; padding: 4px 5px !important; }
+    #chart-wrapper { min-height: 260px !important; }
+    canvas { max-height: 300px !important; }
+  }
+
+  /* DASHBOARD */
+  #dashboard { display: none; }
+
+  /* TEXTO DE SEMANA ARRIBA A LA IZQUIERDA - OPCIÓN 1: Fondo azul con letras blancas */
+  .week-top {
+    margin-bottom: 0.6rem;
+  }
+  .week-top span {
+    font-size: 13px;
+    font-weight: 500;
+    color: #ffffff;
+    background: var(--navy);
+    padding: 0.3rem 1rem;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+  }
+  .week-top i {
+    font-size: 14px;
+    color: rgba(255,255,255,0.8);
+  }
+  .week-top strong {
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  /* CONTENEDOR DE LOS 3 RECUADROS */
+  .header-cards {
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: stretch;
+  }
+
+  /* RECUADRO 1: Reporte N° */
+  .card-report {
+    background: var(--navy);
+    border-radius: 8px;
+    padding: 0.5rem 1.2rem;
+    min-width: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-left: 3px solid var(--red);
+  }
+  .card-report .num { font-size: 36px; font-weight: 700; line-height: 1; color: #fff; }
+  .card-report .label { font-size: 10px; color: rgba(255,255,255,0.6); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 3px; }
+
+  /* RECUADRO 2: Título */
+  .card-title {
+    background: var(--navy);
+    border-radius: 8px;
+    flex: 1;
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 3px solid var(--red);
+  }
+  .title-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .title-main h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.5px;
+    margin: 0;
+  }
+  .title-main i {
+    font-size: 18px;
+    color: var(--red);
+  }
+
+  /* RECUADRO 3: Logo */
+  .card-logo {
+    background: var(--navy);
+    border-radius: 8px;
+    padding: 0.4rem 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 3px solid var(--red);
+  }
+  #dashboard-logo {
+    height: 44px;
+    width: auto;
+    display: block;
+  }
+
+  /* MAIN GRID */
+  .main-grid { display: flex; flex-direction: row; gap: 1rem; margin-bottom: 0.5rem; align-items: stretch; }
+  
+  .panel-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel-header {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 0.5px solid var(--border);
+    display: flex;
+    background: #fefefe;
+  }
+  .panel-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 5px; color: var(--navy);}
+  .panel-subtitle { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .panel-body { padding: 0.6rem; flex: 1; }
+
+  /* BAR CHART */
+  #chart-wrapper { position: relative; width: 100%; min-height: 280px; }
+  canvas { max-height: 320px; width: 100%; }
+
+  /* RANKING TABLE */
+  .ranking-table { width: 100%; border-collapse: collapse; }
+  .ranking-table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text2);
+    font-weight: 600;
+    padding: 0 6px 10px;
+    text-align: left;
+  }
+  .ranking-table th:last-child { text-align: center; }
+  .ranking-table td {
+    padding: 6px 6px;
+    font-size: 13px;
+    border-top: 0.5px solid var(--border);
+  }
+  .rank-num {
+    font-size: 12px;
+    color: var(--text3);
+    font-weight: 500;
+    min-width: 20px;
+  }
+  .tech-name {
+    font-weight: 500;
+    font-size: 13px;
+  }
+  .weeks-pill {
+    display: inline-flex;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .w0 { background: var(--green-light); color: var(--green); }
+  .w1 { background: var(--amber-light); color: var(--amber); }
+  .w2 { background: #faeeda; color: #854f0b; }
+  .w3 { background: #faeeda; color: var(--red); }
+  .w4 { background: var(--red-light); color: var(--red); }
+  .w5plus { background: var(--red); color: #fff; }
+  .trend-icon { font-size: 14px; vertical-align: middle; margin-right: 2px; }
+  
+  .tickets-badge {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1d23;
+    background: transparent;
+    display: inline-block;
+    text-align: center;
+    min-width: 45px;
+  }
+  td:last-child {
+    text-align: center;
+    font-weight: 600;
+    color: #1a1d23;
+  }
+
+  footer {
+    text-align: center;
+    padding: 0.6rem;
+    font-size: 10px;
+    color: var(--text3);
+    border-top: 0.5px solid var(--border);
+    margin-top: 0.8rem;
+  }
+
+  .no-morosos {
+    text-align: center; padding: 1.5rem;
+    color: var(--green); font-size: 13px;
+  }
+  .no-morosos i { font-size: 26px; display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <img src="logo.png" alt="Ferrostaal Graphics" style="height:34px;width:auto;display:block;">
+    <span class="brand-title">Panel Semanal de Técnicos</span>
+  </div>
+  <div class="header-right" id="header-date"></div>
+</header>
+
+<main>
+  <div id="upload-section" onclick="document.getElementById('file-input').click()" ondragover="handleDrag(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" role="button" tabindex="0" aria-label="Cargar archivo Excel">
+    <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(event)">
+    <i class="ti ti-upload" aria-hidden="true"></i>
+    <h2>Arrastra tu archivo Excel aquí</h2>
+    <p>o haz clic para seleccionar el archivo semanal de morosos (.xlsx)</p>
+  </div>
+
+  <div id="config-bar">
+    <div class="config-group">
+      <label><i class="ti ti-report-analytics"></i> Nº Reporte</label>
+      <input type="number" id="input-report" value="13" min="1" max="99">
+    </div>
+    <div class="config-group">
+      <label><i class="ti ti-calendar-week"></i> Semana</label>
+      <input type="number" id="input-week" value="20" min="1" max="53">
+    </div>
+    <div class="config-group">
+      <label><i class="ti ti-calendar"></i> Año</label>
+      <input type="number" id="input-year" value="2026" min="2020" max="2099">
+    </div>
+    <div class="file-info" id="file-info-label"><i class="ti ti-circle-check"></i> <span id="file-name-label"></span></div>
+    <button class="btn-generate" onclick="renderDashboard()">
+      <i class="ti ti-layout-dashboard"></i> Generar Panel
+    </button>
+    <button class="btn-pdf" id="btn-pdf" onclick="imprimirPDF()">
+      <i class="ti ti-file-type-pdf"></i> Exportar PDF
+    </button>
+  </div>
+
+  <div id="dashboard">
+    <!-- TEXTO DE SEMANA ARRIBA A LA IZQUIERDA - Con fondo azul y letras blancas -->
+    <div class="week-top">
+      <span>
+        <i class="ti ti-calendar-week"></i>
+        Semana <strong>n°<span id="d-week">20</span></strong> · año <strong><span id="d-year">2026</span></strong>
+      </span>
+    </div>
+
+    <!-- TRES RECUADROS EN UNA SOLA LÍNEA -->
+    <div class="header-cards">
+      <div class="card-report">
+        <div class="num" id="d-report-num">13</div>
+        <div class="label">Reporte N°</div>
+      </div>
+
+      <div class="card-title">
+        <div class="title-main">
+          <i class="ti ti-report-analytics"></i>
+          <h1>Status Semanal · Tickets sin Cerrar</h1>
+          <i class="ti ti-chart-bar"></i>
+        </div>
+      </div>
+
+      <div class="card-logo">
+        <img id="dashboard-logo" src="logo.png" alt="Ferrostaal Graphics">
+      </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+      <div class="panel-card panel-card-chart">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title"><i class="ti ti-chart-bar"></i> Reporte semanal de técnicos morosos</div>
+            <div class="panel-subtitle">Tickets atrasados sin cerrar por más de 2 días</div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="no-morosos-msg" class="no-morosos" style="display:none">
+            <i class="ti ti-circle-check"></i>
+            ¡Sin técnicos morosos esta semana!
+          </div>
+          <div id="chart-wrapper">
+            <canvas id="barChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-card panel-card-ranking">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title"><i class="ti ti-trophy"></i> Ranking de morosos</div>
+            <div class="panel-subtitle">Semanas acumuladas en el ranking</div>
+          </div>
+        </div>
+        <div class="panel-body" style="padding:0">
+          <table class="ranking-table">
+            <thead>
+              <tr>
+                <th style="padding-left:12px">#</th>
+                <th>Técnico</th>
+                <th>Semanas</th>
+                <th>Total Tickets</th>
+              </tr>
+            </thead>
+            <tbody id="ranking-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer id="footer-bar" style="display:none">
+  Ferrostaal Graphics SpA · Panel generado el <span id="footer-date"></span>
+</footer>
+
+<script>
+let workbookData = null;
+let barChart = null;
+
+document.getElementById('header-date').textContent = new Date().toLocaleDateString('es-CL', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+function handleDrag(e) {
+  e.preventDefault();
+  document.getElementById('upload-section').classList.add('dragover');
+}
+function handleDragLeave(e) {
+  document.getElementById('upload-section').classList.remove('dragover');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-section').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const data = new Uint8Array(e.target.result);
+    const wb = XLSX.read(data, { type: 'array', cellDates: true });
+    workbookData = wb;
+    document.getElementById('upload-section').style.display = 'none';
+    document.getElementById('config-bar').style.display = 'flex';
+    document.getElementById('file-name-label').textContent = file.name;
+    renderDashboard();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function getWeekPill(n) {
+  const cls = n === 0 ? 'w0' : n === 1 ? 'w1' : n === 2 ? 'w2' : n === 3 ? 'w3' : n === 4 ? 'w4' : 'w5plus';
+  return `<span class="weeks-pill ${cls}">${n}</span>`;
+}
+
+function getTrendIcon(n) {
+  if (n === 0) return `<i class="ti ti-star-filled trend-icon" style="color:#e8a800"></i>`;
+  if (n < 5)   return `<i class="ti ti-triangle-filled trend-icon" style="color:#3b6d11"></i>`;
+  return `<i class="ti ti-triangle-inverted-filled trend-icon" style="color:#e24b4a"></i>`;
+}
+
+function renderDashboard() {
+  if (!workbookData) return;
+
+  const reportNum = parseInt(document.getElementById('input-report').value) || 13;
+  const week = parseInt(document.getElementById('input-week').value) || 20;
+  const year = parseInt(document.getElementById('input-year').value) || 2026;
+
+  const csSheet = workbookData.Sheets['Contador de Semanas'];
+  const csData = XLSX.utils.sheet_to_json(csSheet, { defval: 0 });
+
+  const techs = csData
+    .filter(r => r['Tecnico'] && typeof r['Tecnico'] === 'string' && r['Tecnico'].trim())
+    .map(r => ({
+      name: r['Tecnico'].trim(),
+      weeks: Number(r['Cantador de Semanas']) || 0,
+      tickets: Number(r['Tickets']) || 0
+    }))
+    .filter(r => r.name && r.name !== 'NaN');
+
+  const h9Sheet = workbookData.Sheets['Hoja9'];
+  const h9Raw = XLSX.utils.sheet_to_json(h9Sheet, { header: 1, defval: '' });
+  const openTicketMap = {};
+  for (let i = 3; i < h9Raw.length; i++) {
+    const row = h9Raw[i];
+    const name = String(row[0] || '').trim();
+    const cant = Number(row[2]) || 0;
+    if (!name || name.toLowerCase().includes('total') || cant === 0) continue;
+    openTicketMap[name] = cant;
+  }
+
+  const morosasWeek = Object.keys(openTicketMap);
+  const sorted = [...techs].sort((a, b) => b.weeks - a.weeks || b.tickets - a.tickets);
+
+  document.getElementById('d-report-num').textContent = reportNum;
+  document.getElementById('d-week').textContent = week;
+  document.getElementById('d-year').textContent = year;
+
+  const chartTechs = morosasWeek.sort((a, b) => (openTicketMap[b]||0) - (openTicketMap[a]||0));
+  const chartVals = chartTechs.map(n => openTicketMap[n] || 0);
+  const hasChart = chartTechs.length > 0;
+
+  document.getElementById('no-morosos-msg').style.display = hasChart ? 'none' : 'block';
+  document.getElementById('chart-wrapper').style.display = hasChart ? 'block' : 'none';
+
+  if (hasChart) {
+    const barH = Math.max(240, chartTechs.length * 44 + 60);
+    document.getElementById('chart-wrapper').style.height = barH + 'px';
+
+    if (barChart) barChart.destroy();
+    barChart = new Chart(document.getElementById('barChart'), {
+      type: 'bar',
+      data: {
+        labels: chartTechs,
+        datasets: [{
+          label: 'Tickets atrasados',
+          data: chartVals,
+          backgroundColor: '#e24b4a',
+          borderRadius: 4,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.raw} ticket${ctx.raw !== 1 ? 's' : ''}` } }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: { stepSize: 1, font: { size: 11 }, color: '#9ea5b0' },
+            grid: { color: 'rgba(0,0,0,0.06)' },
+            title: { display: true, text: 'Tickets atrasados sin cerrar x más de 2 días', color: '#9ea5b0', font: { size: 11 } }
+          },
+          y: {
+            ticks: { font: { size: 12, weight: '500' }, color: '#1a1d23' },
+            grid: { display: false }
+          }
+        }
+      }
+    });
+  }
+
+  const rankBody = document.getElementById('ranking-body');
+  rankBody.innerHTML = '';
+  sorted.forEach((t, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding-left:12px"><span class="rank-num">${i + 1}</span></td>
+      <td><span class="tech-name">${t.name}</span></td>
+      <td style="text-align:center;white-space:nowrap">${getTrendIcon(t.weeks)} <span style="font-size:12px;font-weight:500">${t.weeks}</span></td>
+      <td style="text-align:center"><span class="tickets-badge">${t.tickets}</span></td>
+    `;
+    rankBody.appendChild(tr);
+  });
+
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('footer-bar').style.display = 'block';
+  document.getElementById('footer-date').textContent = new Date().toLocaleDateString('es-CL');
+  document.getElementById('btn-pdf').classList.add('visible');
+}
+
+function imprimirPDF() {
+  window.print();
+}
+</script>
+</body>
+</html>
